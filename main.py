@@ -1,55 +1,43 @@
 import sys
-import re
-from bs4 import BeautifulSoup
+import url_utilities
+import robots
+from article_scraper import extract_articles
 
-filename = sys.argv[1]
-
-# <title> : <href>
-articles_dict = {}
-base_url = "www.ft.com"
-
-def extract_articles(filename):
-  """
-  Populate articles dictionary with mappings from titles to links
-  """
-  f = open(filename, 'rb')
-  soup = BeautifulSoup(f, 'html.parser')
-  f.close()
-
-  # Retrieve article <a> tags
-  articles = soup.find_all(attrs={"data-trackable-context-story-link": re.compile("heading-link")})
-
-  # Article links correspond to the "href" attribute within their <a> tags
-  # Article titles are the final <span> tag within the <a> tag
-  for article in articles: 
-    article_uri = article["href"] 
-    article_title = article.contents[-1].string 
-    article_title = re.sub(r'\n', '', article_title)
-    article_title = article_title.split()
-    article_title = " ".join(article_title)
-
-    articles_dict[article_title] = article_uri
-
-  print(f"Total articles: {len(articles_dict)}")
-
-def save_articles():
-  summary_file = open("summary.txt", "w", encoding="utf-8")
-  for article in articles_dict:
-    print(article, file=summary_file)
-  summary_file.close()
-
-def print_articles():
-  for article in articles_dict:
-    print(article)
+url = "https://www.ft.com"
 
 def main():
-  print(filename)
-  extract_articles(filename)
-  save_articles()
-  print_articles()
-  print(len(articles_dict))
+  args = sys.argv[1:]
 
+  # python main.py [--test] [--save-articles] [files ...]
+  # python main.py --test --save-articles [files ...]
+  # python main.py --test [files ...]
+  # python main.py --save-articles
+  # python main.py 
+  test_run = False 
+  if args and args[0] == "--test":
+    test_run = True
+    del args[0]
+
+  mode = "print" 
+  if args and args[0] == "--save-articles":
+    mode = "save_articles"
+    del args[0]
+
+  if test_run:
+    sample_files = args 
+    print(sample_files)
+    for file in sample_files:
+      print("\n")
+      print(f"Filename: {file}")
+      f = open(file, "rb")
+      extract_articles(f, mode)
+      f.close()
+  else:
+    if not robots.can_fetch(url):
+      print(f"Scraping is not permitted at {url}")
+      sys.exit(1)
+    html_content = url_utilities.fetch_content(url)
+    extract_articles(html_content, mode)
 
 if __name__ == '__main__':
   main()
-
